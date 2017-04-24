@@ -1,0 +1,307 @@
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         04/24/2017 16:55:03 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE VOLTMETER
+OBJECT MODULE PLACED IN .\src\voltmeter.OBJ
+COMPILER INVOKED BY: c:\SiliconLabs\SimplicityStudio\v4\developer\toolchains\keil_8051\9.53\BIN\C51.exe C:\Users\student
+                    -\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter_3_2\src\voltmeter.c OMF2 SMALL DEBUG OBJECTEXTEND ROM(LARGE) WARNINGLEV
+                    -EL(2) FLOATFUZZY(3) OPTIMIZE(8,SPEED) DEFINE(DEBUG=1) INTVECTOR(0X0000) INTPROMOTE INCDIR(C:\Users\student\SimplicityStu
+                    -dio\v4_workspace\EFM8BB3_Voltmeter_3_2\inc\graphics;C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter_3_2
+                    -\inc;C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter_3_2\inc\config;C:/SiliconLabs/SimplicityStudio/v4/
+                    -developer/sdks/8051/v4.0.3//kits/common/bsp;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kits/EFM8BB3_
+                    -SLSTK2022A/config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/peripheral_driver/inc;C:
+                    -/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kits/common/drivers/efm8_joystick;C:/SiliconLabs/Simplicity
+                    -Studio/v4/developer/sdks/8051/v4.0.3//kits/common/drivers/efm8_memory_lcd/inc;C:/SiliconLabs/SimplicityStudio/v4/develop
+                    -er/sdks/8051/v4.0.3//kits/common/drivers/efm8_memory_lcd/inc/graphics;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/
+                    -8051/v4.0.3//kits/common/drivers/efm8_memory_lcd/inc/config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.
+                    -3//Device/shared/si8051base;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/inc) PRINT(.\s
+                    -rc\voltmeter.lst) COND PAGEWIDTH(120) PAGELENGTH(65) OBJECT(.\src\voltmeter.OBJ)
+
+line level    source
+
+   1          /**************************************************************************//**
+   2           * Copyright (c) 2015 by Silicon Laboratories Inc. All rights reserved.
+   3           *
+   4           * http://developer.silabs.com/legal/version/v11/Silicon_Labs_Software_License_Agreement.txt
+   5           *****************************************************************************/
+   6          ///////////////////////////////////////////////////////////////////////////////
+   7          // voltmeter.c
+   8          ///////////////////////////////////////////////////////////////////////////////
+   9          
+  10          ///////////////////////////////////////////////////////////////////////////////
+  11          // Includes
+  12          ///////////////////////////////////////////////////////////////////////////////
+  13          
+  14          #include "bsp.h"
+  15          #include "tick.h"
+  16          #include "disp.h"
+  17          #include "render.h"
+  18          #include "voltmeter.h"
+  19          #include "joystick.h"
+  20          #include "adc.h"
+  21          #include "thinfont.h"
+  22          #include "dpad_n.h"
+  23          #include "dpad_e.h"
+  24          #include "dpad_s.h"
+  25          #include "dpad_w.h"
+  26          #include "dpad_c.h"
+  27          #include "dpad_nw.h"
+  28          #include "dpad_ne.h"
+  29          #include "dpad_sw.h"
+  30          #include "dpad_se.h"
+  31          #include "dpad_bold_n.h"
+  32          #include "dpad_bold_e.h"
+  33          #include "dpad_bold_s.h"
+  34          #include "dpad_bold_w.h"
+  35          #include "dpad_bold_c.h"
+  36          #include "dpad_bold_nw.h"
+  37          #include "dpad_bold_ne.h"
+  38          #include "dpad_bold_sw.h"
+  39          #include "dpad_bold_se.h"
+  40          
+  41          
+  42          
+  43          
+  44          #include <SI_EFM8BB3_Register_Enums.h>
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         04/24/2017 16:55:03 PAGE 2   
+
+  45          
+  46          //-----------------------------------------------------------------------------
+  47          // Global Constants
+  48          //-----------------------------------------------------------------------------
+  49          // Configurator set for HFOSC0/8
+  50          #define SYSCLK             3062000
+  51          
+  52          // Configurator set for timer overflow every 100 ms / 10 Hz.
+  53          #define LED_TOGGLE_RATE           100  // LED toggle rate in milliseconds
+  54          // if LED_TOGGLE_RATE = 1, the LED will
+  55          // be on for 1 millisecond and off for
+  56          // 1 millisecond
+  57          
+  58          SI_SBIT(LED_RED, SFR_P1, 6);// red LED
+  59          SI_SBIT (LED_BLUE, SFR_P1, 5);// blue LED
+  60          SI_SBIT (LED_GREEN, SFR_P1, 4);// green LED
+  61          
+  62          SI_SBIT(BTN0, SFR_P0, 2);                 // P0.2 BTN0
+  63          SI_SBIT(BTN1, SFR_P0, 3);                 // P0.3 BTN1
+  64          ///////////////////////////////////////////////////////////////////////////////
+  65          // Globals
+  66          ///////////////////////////////////////////////////////////////////////////////
+  67          
+  68          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(west_bits,      uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  69          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(east_bits,      uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  70          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(north_bits,     uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  71          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(south_bits,     uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  72          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(center_bits,    uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  73          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(northwest_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  74          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(northeast_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  75          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(southwest_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  76          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(southeast_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  77          
+  78          // Generic line buffer
+  79          SI_SEGMENT_VARIABLE(Line[DISP_BUF_SIZE], uint8_t, RENDER_LINE_SEG);
+  80          
+  81          // ADC input: joystick or external
+  82          bool adcInput;
+  83          #define ADCINPUT_JOYSTICK 0
+  84          #define ADCINPUT_EXTERNAL 1
+  85          
+  86          // Flag to update the ADC input text on the screen.
+  87          uint8_t updateAdcInput;
+  88          #define UPDATEADCINPUT_NO  0
+  89          #define UPDATEADCINPUT_YES 1
+  90          
+  91          ///////////////////////////////////////////////////////////////////////////////
+  92          // Supporting Functions
+  93          ///////////////////////////////////////////////////////////////////////////////
+  94          char timeStr[7];
+  95          static uint16_t time = 0;
+  96          uint8_t lapcount = 0;
+  97          uint8_t lapnow = 0;
+  98          uint8_t resetopt = 0;
+  99          //-----------------------------------------------------------------------------
+ 100          // convertMillivoltToVolt
+ 101          //-----------------------------------------------------------------------------
+ 102          //
+ 103          // Converts mV string to V string with units.
+ 104          // e.g. '3300' to '3.300 V'
+ 105          //
+ 106          // mVolt - 0 to 3300 mV
+ 107          // voltStr  - string with V info, length is 9 (added decimal point, space, and unit)
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         04/24/2017 16:55:03 PAGE 3   
+
+ 108          //
+ 109          void convertMillivoltToVolt(uint16_t mVolt, char * voltStr)
+ 110          {
+ 111   1        int8_t pos = 7;
+ 112   1      
+ 113   1        // Work backwards generating the string
+ 114   1        // Start with null-terminator
+ 115   1        // followed by V symbol  
+ 116   1      
+ 117   1        voltStr[pos--] = '\0';
+ 118   1        voltStr[pos--] = 's';
+ 119   1        
+ 120   1        // followed by thousandths digit
+ 121   1        // followed by hundredths digit
+ 122   1        // followed by tenths digit
+ 123   1        // followed by the decimal point at pos=1
+ 124   1        // followed by the ones digit
+ 125   1        for (; pos >= 0; pos--)
+ 126   1        {
+ 127   2          // Pos = 1 is the location of the decimal point
+ 128   2          if (pos == 3)
+ 129   2          {
+ 130   3            voltStr[pos] = '.';
+ 131   3          }
+ 132   2          else
+ 133   2          {
+ 134   3            // Get the right-most digit from the number
+ 135   3            // and convert to ascii
+ 136   3            voltStr[pos] = (mVolt % 10) + '0';
+ 137   3            
+ 138   3            // Shift number by 1 decimal place to the right
+ 139   3            mVolt /= 10; 
+ 140   3          }
+ 141   2        }
+ 142   1      }
+ 143          
+ 144          //-----------------------------------------------------------------------------
+ 145          // drawScreenText
+ 146          //-----------------------------------------------------------------------------
+ 147          //
+ 148          // Show one line of text on the screen
+ 149          //
+ 150          // str - pointer to string text (0 - 21 characters) to display
+ 151          // rowNum - row number of the screen (0 - 127)
+ 152          // fontScale - font scaler (1 - 4)
+ 153          //
+ 154          void drawScreenText(SI_VARIABLE_SEGMENT_POINTER(str, char, RENDER_STR_SEG), uint8_t rowNum, uint8_t fontSc
+             -ale)
+ 155          {
+ 156   1        uint8_t i, j;
+ 157   1      
+ 158   1        for (i = 0; i < FONT_HEIGHT; i++)
+ 159   1        {
+ 160   2          RENDER_ClrLine(Line);
+ 161   2          RENDER_Large_StrLine(Line, 4, i, (SI_VARIABLE_SEGMENT_POINTER(, char, RENDER_STR_SEG))str, fontScale);
+ 162   2      
+ 163   2          for (j = 1; j < fontScale + 1; j++)
+ 164   2          {
+ 165   3            DISP_WriteLine(rowNum + (i * fontScale) + j, Line);
+ 166   3          }
+ 167   2        }
+ 168   1      }
+ 169          
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         04/24/2017 16:55:03 PAGE 4   
+
+ 170          
+ 171          
+ 172          SI_INTERRUPT (TIMER0_ISR, TIMER0_IRQn)
+ 173          {
+ 174   1              static uint16_t counter = 0;
+ 175   1      
+ 176   1              counter++;
+ 177   1      
+ 178   1              if(counter == LED_TOGGLE_RATE)
+ 179   1              {
+ 180   2                      //LED_RED = !LED_RED;                    // Toggle the LED
+ 181   2                      time++;
+ 182   2                      counter = 0;
+ 183   2              }
+ 184   1      }
+ 185          
+ 186          
+ 187          
+ 188          SI_INTERRUPT (INT1_ISR, INT1_IRQn)
+ 189          {
+ 190   1              //LED_BLUE = !LED_BLUE;
+ 191   1              if(BTN1 == 0){
+ 192   2                              lapcount++; //increase lapcount to tell drawLap() routine to continue
+ 193   2              }
+ 194   1      }
+ 195          
+ 196          SI_INTERRUPT (INT0_ISR, INT0_IRQn)
+ 197          {
+ 198   1              //LED_GREEN = !LED_GREEN;
+ 199   1              if(BTN0 == 0){
+ 200   2                              resetopt++;
+ 201   2              }
+ 202   1      }
+ 203          ///////////////////////////////////////////////////////////////////////////////
+ 204          // Driver Function
+ 205          
+ 206          void NewLap(){
+ 207   1              if(lapnow != lapcount){
+ 208   2                      convertMillivoltToVolt(time*5, timeStr);
+ 209   2                      drawScreenText(timeStr, 50 + (10*lapnow), FONT_SCALE_DEFAULT);
+ 210   2              }
+ 211   1              lapnow = lapcount;
+ 212   1      }
+ 213          
+ 214          void ResetLap(){
+ 215   1                      drawScreenText(" ", 50, FONT_SCALE_DEFAULT);
+ 216   1                      drawScreenText(" ", 60, FONT_SCALE_DEFAULT);
+ 217   1                      drawScreenText(" ", 70, FONT_SCALE_DEFAULT);
+ 218   1                      drawScreenText(" ", 80, FONT_SCALE_DEFAULT);
+ 219   1                      drawScreenText(" ", 90, FONT_SCALE_DEFAULT);
+ 220   1                      drawScreenText(" ", 100, FONT_SCALE_DEFAULT);
+ 221   1                      drawScreenText(" ", 120, FONT_SCALE_DEFAULT);
+ 222   1                      drawScreenText(" ", 130, FONT_SCALE_DEFAULT);
+ 223   1                      drawScreenText(" ", 140, FONT_SCALE_DEFAULT);
+ 224   1                      drawScreenText(" ", 150, FONT_SCALE_DEFAULT);
+ 225   1                      drawScreenText(" ", 160, FONT_SCALE_DEFAULT);
+ 226   1                      drawScreenText(" ", 170, FONT_SCALE_DEFAULT);
+ 227   1                      drawScreenText(" ", 180, FONT_SCALE_DEFAULT);
+ 228   1      
+ 229   1      
+ 230   1                      lapnow = 0;
+ 231   1                      lapcount = 0;
+ 232   1      }
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         04/24/2017 16:55:03 PAGE 5   
+
+ 233          
+ 234          void Voltmeter_main(void)
+ 235          {
+ 236   1        uint32_t adcVoltage = 0;
+ 237   1      
+ 238   1        // Initial ADC input is joystick
+ 239   1        adcInput = ADCINPUT_JOYSTICK;
+ 240   1        updateAdcInput = UPDATEADCINPUT_YES;
+ 241   1      
+ 242   1      
+ 243   1        while(1){
+ 244   2      
+ 245   2        drawScreenText("Theo & John",       10, FONT_SCALE_DEFAULT);
+ 246   2        drawScreenText("Stopwatch Project", 20, FONT_SCALE_DEFAULT);
+ 247   2      
+ 248   2        convertMillivoltToVolt(time*5, timeStr);
+ 249   2        drawScreenText(timeStr, 30, 2);
+ 250   2      
+ 251   2      
+ 252   2        if(P0_B2 == 0){
+ 253   3              ResetLap();
+ 254   3        }
+ 255   2      
+ 256   2        NewLap();
+ 257   2      
+ 258   2        }
+ 259   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    596    ----
+   CONSTANT SIZE    =   1408    ----
+   XDATA SIZE       =     34    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     15      17
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
