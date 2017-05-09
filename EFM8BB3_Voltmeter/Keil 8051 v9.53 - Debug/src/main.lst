@@ -1,0 +1,160 @@
+C51 COMPILER V9.53.0.0   MAIN                                                              05/08/2017 21:59:06 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\src\main.OBJ
+COMPILER INVOKED BY: c:\SiliconLabs\SimplicityStudio\v4\developer\toolchains\keil_8051\9.53\BIN\C51.exe C:\Users\student
+                    -\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\main.c OMF2 SMALL DEBUG OBJECTEXTEND ROM(LARGE) WARNINGLEVEL(2) FLO
+                    -ATFUZZY(3) OPTIMIZE(8,SPEED) DEFINE(DEBUG=1) INTVECTOR(0X0000) INTPROMOTE INCDIR(C:\Users\student\SimplicityStudio\v4_wo
+                    -rkspace\EFM8BB3_Voltmeter\inc\graphics;C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\inc;C:\Users\stu
+                    -dent\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\inc\config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v
+                    -4.0.3//kits/common/bsp;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kits/EFM8BB3_SLSTK2022A/config;C:/
+                    -SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/peripheral_driver/inc;C:/SiliconLabs/Simplici
+                    -tyStudio/v4/developer/sdks/8051/v4.0.3//kits/common/drivers/efm8_joystick;C:/SiliconLabs/SimplicityStudio/v4/developer/s
+                    -dks/8051/v4.0.3//kits/common/drivers/efm8_memory_lcd/inc;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//
+                    -kits/common/drivers/efm8_memory_lcd/inc/graphics;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kits/com
+                    -mon/drivers/efm8_memory_lcd/inc/config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/shared/si80
+                    -51base;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/inc) PRINT(.\src\main.lst) COND PAG
+                    -EWIDTH(120) PAGELENGTH(65) OBJECT(.\src\main.OBJ)
+
+line level    source
+
+   1          //-----------------------------------------------------------------------------
+   2          // main.c
+   3          //-----------------------------------------------------------------------------
+   4          // Copyright 2014 Silicon Laboratories, Inc.
+   5          // http://developer.silabs.com/legal/version/v11/Silicon_Labs_Software_License_Agreement.txt
+   6          //
+   7          // Program Description:
+   8          //
+   9          // This demo demonstrates the ADC on the EFM8BB3 STK using the analog joystick
+  10          // or P1.1 as the ADC input.
+  11          //
+  12          // Resources:
+  13          //   SYSCLK - 24.5 MHz HFOSC0 / 1
+  14          //   ADC0   - 10-bit, VREF = VDD (3.3 V)
+  15          //   SPI0   - 1 MHz
+  16          //   Timer0 - ADC start of conversion
+  17          //   Timer2 - 2 MHz (SPI CS delay)
+  18          //   Timer3 - 1 kHz (1 ms tick)
+  19          //   P0.2   - Push button
+  20          //   P0.6   - SPI SCK
+  21          //   P1.0   - SPI MOSI
+  22          //   P1.1   - ADC input
+  23          //   P1.7   - ADC input/Joystick (analog voltage divider)
+  24          //   P2.6   - SPI CS (Active High)
+  25          //   P3.4   - Display enable
+  26          //
+  27          //-----------------------------------------------------------------------------
+  28          // How To Test: EFM8BB3 STK
+  29          //-----------------------------------------------------------------------------
+  30          // 1) Place the switch in "AEM" mode.
+  31          // 2) Connect the EFM8BB3 STK board to a PC using a mini USB cable.
+  32          // 3) Compile and download code to the EFM8BB3 STK board.
+  33          //    In Simplicity Studio IDE, select Run -> Debug from the menu bar,
+  34          //    click the Debug button in the quick menu, or press F11.
+  35          // 4) Run the code.
+  36          //    In Simplicity Studio IDE, select Run -> Resume from the menu bar,
+  37          //    click the Resume button in the quick menu, or press F8.
+  38          // 5) The Voltmeter demo should start.
+  39          //
+  40          // Target:         EFM8BB3
+  41          // Tool chain:     Generic
+  42          //
+  43          // Release 0.1 (ST)
+  44          //    - Initial Revision
+C51 COMPILER V9.53.0.0   MAIN                                                              05/08/2017 21:59:06 PAGE 2   
+
+  45          //    - 15 JUL 2015
+  46          //
+  47          
+  48          /////////////////////////////////////////////////////////////////////////////
+  49          // Includes
+  50          /////////////////////////////////////////////////////////////////////////////
+  51          
+  52          #include "bsp.h"
+  53          #include "InitDevice.h"
+  54          #include "disp.h"
+  55          #include "voltmeter.h"
+  56          #include <SI_EFM8BB3_Register_Enums.h>
+  57          #include "retargetserial.h"
+  58          
+  59          //-----------------------------------------------------------------------------
+  60          // Pin Definitions
+  61          //-----------------------------------------------------------------------------
+  62          SI_SBIT (DISP_EN, SFR_P3, 4);          // Display Enable
+  63          #define DISP_BC_DRIVEN   0             // 0 = Board Controller drives display
+  64          #define DISP_EFM8_DRIVEN 1             // 1 = EFM8 drives display
+  65          
+  66          SI_SBIT (BC_EN, SFR_P2, 2);            // Board Controller Enable
+  67          #define BC_DISCONNECTED 0              // 0 = Board Controller disconnected
+  68                                                 //     to EFM8 UART pins
+  69          #define BC_CONNECTED    1              // 1 = Board Controller connected
+  70                                                 //     to EFM8 UART pins
+  71          
+  72          
+  73          
+  74          
+  75          //---------------------------------------------------------------------------
+  76          // main() Routine
+  77          // --------------------------------------------------------------------------
+  78          int main(void)
+  79          {
+  80   1      
+  81   1              unsigned char inputcharacter;       // Used to store character from UART
+  82   1      
+  83   1        // Enter default mode
+  84   1        enter_DefaultMode_from_RESET();
+  85   1      
+  86   1        // Enable all interrupts
+  87   1        //IE_EA = 1;
+  88   1      
+  89   1        //DISP_Init();
+  90   1      
+  91   1      
+  92   1      
+  93   1        DISP_EN = DISP_EFM8_DRIVEN;
+  94   1      
+  95   1        BC_EN = BC_CONNECTED;            // Board controller NOT connected to EFM8
+  96   1                                            // UART pins
+  97   1      
+  98   1      
+  99   1        SCON0_TI = 1;                       // This STDIO library requires TI to
+ 100   1                                            // be set for prints to occur
+ 101   1      
+ 102   1        IE_EA = 1;
+ 103   1      
+ 104   1        DISP_Init();
+ 105   1      
+ 106   1        while (1)
+ 107   1        {Voltmeter_main();
+C51 COMPILER V9.53.0.0   MAIN                                                              05/08/2017 21:59:06 PAGE 3   
+
+ 108   2                      //RETARGET_PRINTF ("\nEnter character: ");
+ 109   2                      //inputcharacter = getchar();
+ 110   2                      //RETARGET_PRINTF ("\nCharacter entered: %c", inputcharacter);
+ 111   2                      //RETARGET_PRINTF ("\n     Value in Hex: %bx", inputcharacter);
+ 112   2      
+ 113   2        };
+ 114   1      }
+*** WARNING C280 IN LINE 81 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\main.c: 'inputcharac
+             -ter': unreferenced local variable
+ 115          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     19    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

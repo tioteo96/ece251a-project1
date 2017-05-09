@@ -1,0 +1,581 @@
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE VOLTMETER
+OBJECT MODULE PLACED IN .\src\voltmeter.OBJ
+COMPILER INVOKED BY: c:\SiliconLabs\SimplicityStudio\v4\developer\toolchains\keil_8051\9.53\BIN\C51.exe C:\Users\student
+                    -\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c OMF2 SMALL DEBUG OBJECTEXTEND ROM(LARGE) WARNINGLEVEL(2
+                    -) FLOATFUZZY(3) OPTIMIZE(8,SPEED) DEFINE(DEBUG=1) INTVECTOR(0X0000) INTPROMOTE INCDIR(C:\Users\student\SimplicityStudio\
+                    -v4_workspace\EFM8BB3_Voltmeter\inc\graphics;C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\inc;C:\User
+                    -s\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\inc\config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8
+                    -051/v4.0.3//kits/common/bsp;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kits/EFM8BB3_SLSTK2022A/confi
+                    -g;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/peripheral_driver/inc;C:/SiliconLabs/Sim
+                    -plicityStudio/v4/developer/sdks/8051/v4.0.3//kits/common/drivers/efm8_joystick;C:/SiliconLabs/SimplicityStudio/v4/develo
+                    -per/sdks/8051/v4.0.3//kits/common/drivers/efm8_memory_lcd/inc;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.
+                    -0.3//kits/common/drivers/efm8_memory_lcd/inc/graphics;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//kit
+                    -s/common/drivers/efm8_memory_lcd/inc/config;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/shared
+                    -/si8051base;C:/SiliconLabs/SimplicityStudio/v4/developer/sdks/8051/v4.0.3//Device/EFM8BB3/inc) PRINT(.\src\voltmeter.lst
+                    -) COND PAGEWIDTH(120) PAGELENGTH(65) OBJECT(.\src\voltmeter.OBJ)
+
+line level    source
+
+   1          /**************************************************************************//**
+   2           * Copyright (c) 2015 by Silicon Laboratories Inc. All rights reserved.
+   3           *
+   4           * http://developer.silabs.com/legal/version/v11/Silicon_Labs_Software_License_Agreement.txt
+   5           *****************************************************************************/
+   6          ///////////////////////////////////////////////////////////////////////////////
+   7          // voltmeter.c
+   8          ///////////////////////////////////////////////////////////////////////////////
+   9          
+  10          ///////////////////////////////////////////////////////////////////////////////
+  11          // Includes
+  12          ///////////////////////////////////////////////////////////////////////////////
+  13          
+  14          
+  15          #include "bsp.h"
+  16          #include "tick.h"
+  17          #include "disp.h"
+  18          #include "render.h"
+  19          #include "voltmeter.h"
+  20          #include "joystick.h"
+  21          #include "adc.h"
+  22          #include "thinfont.h"
+  23          #include "dpad_n.h"
+  24          #include "dpad_e.h"
+  25          #include "dpad_s.h"
+  26          #include "dpad_w.h"
+  27          #include "dpad_c.h"
+  28          #include "dpad_nw.h"
+  29          #include "dpad_ne.h"
+  30          #include "dpad_sw.h"
+  31          #include "dpad_se.h"
+  32          #include "dpad_bold_n.h"
+  33          #include "dpad_bold_e.h"
+  34          #include "dpad_bold_s.h"
+  35          #include "dpad_bold_w.h"
+  36          #include "dpad_bold_c.h"
+  37          #include "dpad_bold_nw.h"
+  38          #include "dpad_bold_ne.h"
+  39          #include "dpad_bold_sw.h"
+  40          #include "dpad_bold_se.h"
+  41          
+  42          #include <SI_EFM8BB3_Register_Enums.h>
+  43          #include "retargetserial.h"
+  44          #include "InitDevice.h"
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 2   
+
+  45          
+  46          
+  47          
+  48          ///////////////////////////////////////////////////////////////////////////////
+  49          // Globals
+  50          ///////////////////////////////////////////////////////////////////////////////
+  51          
+  52          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(west_bits,      uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  53          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(east_bits,      uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  54          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(north_bits,     uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  55          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(south_bits,     uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  56          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(center_bits,    uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  57          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(northwest_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  58          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(northeast_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  59          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(southwest_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  60          SI_SEGMENT_VARIABLE_SEGMENT_POINTER(southeast_bits, uint8_t, const SI_SEG_CODE, SI_SEG_XDATA);
+  61          
+  62          // Generic line buffer
+  63          SI_SEGMENT_VARIABLE(Line[DISP_BUF_SIZE], uint8_t, RENDER_LINE_SEG);
+  64          
+  65          // ADC input: joystick or external
+  66          bool adcInput;
+  67          #define ADCINPUT_JOYSTICK 0
+  68          #define ADCINPUT_EXTERNAL 1
+  69          
+  70          // Flag to update the ADC input text on the screen.
+  71          uint8_t updateAdcInput;
+  72          #define UPDATEADCINPUT_NO  0
+  73          #define UPDATEADCINPUT_YES 1
+  74          
+  75          
+  76          
+  77          ///////////////////////////////////////////////////////////////////////////////
+  78          // Supporting Functions
+  79          ///////////////////////////////////////////////////////////////////////////////
+  80          
+  81          //-----------------------------------------------------------------------------
+  82          // convertMillivoltToVolt
+  83          //-----------------------------------------------------------------------------
+  84          //
+  85          // Converts mV string to V string with units.
+  86          // e.g. '3300' to '3.300 V'
+  87          //
+  88          // mVolt - 0 to 3300 mV
+  89          // voltStr  - string with V info, length is 9 (added decimal point, space, and unit)
+  90          //
+  91          void convertMillivoltToVolt(uint16_t mVolt, char * voltStr)
+  92          {
+  93   1        int8_t pos = 6;
+  94   1        
+  95   1        // Work backwards generating the string
+  96   1        // Start with null-terminator
+  97   1        // followed by V symbol  
+  98   1        voltStr[pos--] = '\0';
+  99   1        voltStr[pos--] = 'V';
+ 100   1        
+ 101   1        // followed by thousandths digit
+ 102   1        // followed by hundredths digit
+ 103   1        // followed by tenths digit
+ 104   1        // followed by the decimal point at pos=1
+ 105   1        // followed by the ones digit
+ 106   1        for (; pos >= 0; pos--)
+ 107   1        {
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 3   
+
+ 108   2          // Pos = 1 is the location of the decimal point
+ 109   2          if (pos == 1)
+ 110   2          {
+ 111   3            voltStr[pos] = '.';
+ 112   3          }
+ 113   2          else
+ 114   2          {
+ 115   3            // Get the right-most digit from the number
+ 116   3            // and convert to ascii
+ 117   3            voltStr[pos] = (mVolt % 10) + '0';
+ 118   3            
+ 119   3            // Shift number by 1 decimal place to the right
+ 120   3            mVolt /= 10; 
+ 121   3          }
+ 122   2        }
+ 123   1      }
+ 124          
+ 125          //-----------------------------------------------------------------------------
+ 126          // drawScreenText
+ 127          //-----------------------------------------------------------------------------
+ 128          //
+ 129          // Show one line of text on the screen
+ 130          //
+ 131          // str - pointer to string text (0 - 21 characters) to display
+ 132          // rowNum - row number of the screen (0 - 127)
+ 133          // fontScale - font scaler (1 - 4)
+ 134          //
+ 135          void drawScreenText(SI_VARIABLE_SEGMENT_POINTER(str, char, RENDER_STR_SEG), uint8_t rowNum, uint8_t fontSc
+             -ale)
+ 136          {
+ 137   1        uint8_t i, j;
+ 138   1      
+ 139   1        for (i = 0; i < FONT_HEIGHT; i++)
+ 140   1        {
+ 141   2          RENDER_ClrLine(Line);
+ 142   2          RENDER_Large_StrLine(Line, 4, i, (SI_VARIABLE_SEGMENT_POINTER(, char, RENDER_STR_SEG))str, fontScale);
+ 143   2      
+ 144   2          for (j = 1; j < fontScale + 1; j++)
+ 145   2          {
+ 146   3            DISP_WriteLine(rowNum + (i * fontScale) + j, Line);
+ 147   3          }
+ 148   2        }
+ 149   1      }
+ 150          
+ 151          //-----------------------------------------------------------------------------
+ 152          // drawScreenDpadRow
+ 153          //-----------------------------------------------------------------------------
+ 154          //
+ 155          // Displays one row of dpad graphics (ie left arrow, center, right arrow)
+ 156          // centered on the screen.
+ 157          //
+ 158          // pic1_bits - pointer to leftmost picture
+ 159          // pic2_bits - pointer to center picture
+ 160          // pic3_bits - pointer to rightmost picture
+ 161          // rowNum - row number on the screen (0 - 127)
+ 162          //
+ 163          void drawScreenDpadRow(
+ 164            SI_VARIABLE_SEGMENT_POINTER(pic1_bits, uint8_t, RENDER_SPRITE_SEG),
+ 165            SI_VARIABLE_SEGMENT_POINTER(pic2_bits, uint8_t, RENDER_SPRITE_SEG),
+ 166            SI_VARIABLE_SEGMENT_POINTER(pic3_bits, uint8_t, RENDER_SPRITE_SEG),
+ 167            uint8_t rowNum)
+ 168          {
+ 169   1        uint8_t i;
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 4   
+
+ 170   1        uint8_t picWidth = dpad_c_width;
+ 171   1        uint8_t picHieght = dpad_c_height;
+ 172   1      
+ 173   1        for (i = 0; i < picHieght; i++)
+ 174   1        {
+ 175   2          RENDER_ClrLine(Line);
+ 176   2          RENDER_SpriteLine(Line,
+ 177   2                            X_CENTER - picWidth / 2 - picWidth, i,
+ 178   2                            pic1_bits, picWidth);
+ 179   2          RENDER_SpriteLine(Line, X_CENTER - picWidth / 2, i, pic2_bits,
+ 180   2                            picWidth);
+ 181   2          RENDER_SpriteLine(Line,
+ 182   2                            X_CENTER - picWidth / 2 + picWidth, i,
+ 183   2                            pic3_bits, picWidth);
+ 184   2          DISP_WriteLine(rowNum + i, Line);
+ 185   2        }
+ 186   1      }
+ 187          
+ 188          //-----------------------------------------------------------------------------
+ 189          // drawScreenAdcInput
+ 190          //-----------------------------------------------------------------------------
+ 191          //
+ 192          // Update the ADC input on the screen if updateAdcInput flag is set.
+ 193          //
+ 194          // updateAdcInput flag is set at the beginning of the demo and
+ 195          // when the user presses the button.
+ 196          //
+ 197          void drawScreenAdcInput(void)
+ 198          {
+ 199   1        uint8_t i;
+ 200   1      
+ 201   1        if (updateAdcInput == UPDATEADCINPUT_YES)
+ 202   1        {
+ 203   2          // Draw adcInput
+ 204   2          if (adcInput == ADCINPUT_JOYSTICK)
+ 205   2          {
+ 206   3            drawScreenText("ADC INPUT: JOYSTICK", 0, FONT_SCALE_DEFAULT);
+ 207   3          }
+ 208   2          else if (adcInput == ADCINPUT_EXTERNAL)
+ 209   2          {
+ 210   3            drawScreenText("ADC INPUT: EXTERNAL", 0, FONT_SCALE_DEFAULT);
+ 211   3      
+ 212   3            // Clear dpad from screen
+ 213   3            for (i = 127-48; i <= 127; i++)
+ 214   3            {
+ 215   4              DISP_ClearLine(i, COLOR_BLACK);
+ 216   4            }
+ 217   3      
+ 218   3            drawScreenText("APPLY VOLTAGE", 127-48, FONT_SCALE_DEFAULT);
+ 219   3            drawScreenText("(0-3.3V) TO P1.1", 127-36, FONT_SCALE_DEFAULT);
+ 220   3          }
+ 221   2      
+ 222   2          updateAdcInput = UPDATEADCINPUT_NO;
+ 223   2        }
+ 224   1      }
+ 225          
+ 226          //-----------------------------------------------------------------------------
+ 227          // drawScreen
+ 228          //-----------------------------------------------------------------------------
+ 229          //
+ 230          // Update ADC reading on the screen in the following format
+ 231          //    y.yyy V
+ 232          //
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 5   
+
+ 233          // And displays the directional pad. When dpad is pressed, the respective
+ 234          // arrow is bolded on the display.
+ 235          //
+ 236          // mVolt - ADC input in mV as unsigned long
+ 237          //
+ 238          void drawScreen(uint32_t mVolt)
+ 239          {
+ 240   1        char voltStr[9];
+ 241   1      
+ 242   1        static uint32_t mVoltLast = 0;
+ 243   1      
+ 244   1        // Draw ADC input
+ 245   1        drawScreenAdcInput();
+ 246   1      
+ 247   1        if((mVolt < mVoltLast - HYSTERESIS_MV) || (mVolt > mVoltLast + HYSTERESIS_MV))
+ 248   1        {
+ 249   2                convertMillivoltToVolt(mVolt, voltStr);
+ 250   2                drawScreenText(voltStr, Y_VOLTAGE_POS, FONT_SCALE_VOLTAGE);
+ 251   2                mVoltLast = mVolt;
+ 252   2        }
+ 253   1      
+ 254   1        if(adcInput == ADCINPUT_JOYSTICK)
+ 255   1        {
+ 256   2          // Draw directional pad
+ 257   2          drawScreenDpadRow(northwest_bits, north_bits,  northeast_bits, 127-48);
+ 258   2          drawScreenDpadRow(west_bits,      center_bits, east_bits,      127-32);
+ 259   2          drawScreenDpadRow(southwest_bits, south_bits,  southeast_bits, 127-16);
+ 260   2        }
+ 261   1      }
+ 262          
+ 263          //-----------------------------------------------------------------------------
+ 264          // synchFrame
+ 265          //-----------------------------------------------------------------------------
+ 266          //
+ 267          // Delay until start of next frame
+ 268          //
+ 269          void synchFrame(void)
+ 270          {
+ 271   1        static uint16_t lastTick = 0;
+ 272   1        uint16_t tick;
+ 273   1      
+ 274   1        // Render at 50 Hz
+ 275   1        while (((tick = GetTickCount()) - lastTick) < HZ_TO_MS(DEMO_FRAME_RATE));
+ 276   1        lastTick = tick;
+ 277   1      }
+ 278          
+ 279          //-----------------------------------------------------------------------------
+ 280          // dpadReset
+ 281          //-----------------------------------------------------------------------------
+ 282          //
+ 283          // Delay until start of next frame
+ 284          //
+ 285          void dpadReset(void)
+ 286          {
+ 287   1        center_bits = dpad_c_bits;
+ 288   1        north_bits  = dpad_n_bits;
+ 289   1        east_bits   = dpad_e_bits;
+ 290   1        south_bits  = dpad_s_bits;
+ 291   1        west_bits   = dpad_w_bits;
+ 292   1        northwest_bits = dpad_nw_bits;
+ 293   1        northeast_bits = dpad_ne_bits;
+ 294   1        southwest_bits = dpad_sw_bits;
+ 295   1        southeast_bits = dpad_se_bits;
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 6   
+
+ 296   1      }
+ 297          
+ 298          //-----------------------------------------------------------------------------
+ 299          // updateDpad
+ 300          //-----------------------------------------------------------------------------
+ 301          //
+ 302          // Updates dpad image pointers
+ 303          //
+ 304          // direction - return value from JOYSTICK_convert_mv_to_direction()
+ 305          //
+ 306          void updateDpad(uint8_t direction)
+ 307          {
+ 308   1        dpadReset();
+ 309   1        switch(direction)
+ 310   1        {
+ 311   2          case JOYSTICK_C:
+ 312   2            center_bits = dpad_bold_c_bits;
+ 313   2            break;
+ 314   2          case JOYSTICK_N:
+ 315   2            north_bits  = dpad_bold_n_bits;
+ 316   2            break;
+ 317   2          case JOYSTICK_E:
+ 318   2            east_bits   = dpad_bold_e_bits;
+ 319   2            break;
+ 320   2          case JOYSTICK_S:
+ 321   2            south_bits  = dpad_bold_s_bits;
+ 322   2            break;
+ 323   2          case JOYSTICK_W:
+ 324   2            west_bits   = dpad_bold_w_bits;
+ 325   2            break;
+ 326   2          case JOYSTICK_NE:
+ 327   2            northeast_bits = dpad_bold_ne_bits;
+ 328   2            break;
+ 329   2          case JOYSTICK_NW:
+ 330   2            northwest_bits = dpad_bold_nw_bits;
+ 331   2            break;
+ 332   2          case JOYSTICK_SE:
+ 333   2            southeast_bits = dpad_bold_se_bits;
+ 334   2            break;
+ 335   2          case JOYSTICK_SW:
+ 336   2            southwest_bits = dpad_bold_sw_bits;
+ 337   2            break;
+ 338   2          case JOYSTICK_NONE:
+ 339   2            break;
+ 340   2          default:
+ 341   2            break;
+ 342   2        }
+ 343   1      }
+ 344          
+ 345          ///////////////////////////////////////////////////////////////////////////////
+ 346          // Interrupt Service Routines
+ 347          ///////////////////////////////////////////////////////////////////////////////
+ 348          
+ 349          //-----------------------------------------------------------------------------
+ 350          // PMATCH_ISR
+ 351          //-----------------------------------------------------------------------------
+ 352          //
+ 353          // The Port Match interrupt occurs whenever (Pn & PnMASK) != (PnMAT & PnMASK).
+ 354          // We must disable the interrupt and wait until the button is released in
+ 355          // main, or else the interrupt will trigger multiple times.  It is generally
+ 356          // not good practice to sit in an ISR for int32_t periods of time.
+ 357          //
+ 358          SI_INTERRUPT(PMATCH_ISR, PMATCH_IRQn)
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 7   
+
+ 359          {
+ 360   1        uint8_t SFRPAGE_save = SFRPAGE;
+ 361   1      
+ 362   1        // If the port match event occurred on button press, change ADC input
+ 363   1        // and set updateAdcInput flag so input text will be updated later in main()
+ 364   1        if(BSP_PB0 == BSP_PB_PRESSED)
+ 365   1        {
+ 366   2          adcInput = !adcInput;
+ 367   2          updateAdcInput = UPDATEADCINPUT_YES;
+ 368   2        }
+ 369   1      
+ 370   1        SFRPAGE = LEGACY_PAGE;
+ 371   1        if (adcInput == ADCINPUT_JOYSTICK)
+ 372   1        {
+ 373   2          ADC0MX = ADC0MX_ADC0MX__ADC0P13; // P1.7
+ 374   2        }
+ 375   1        else if (adcInput == ADCINPUT_EXTERNAL)
+ 376   1        {
+ 377   2          ADC0MX = ADC0MX_ADC0MX__ADC0P7; // P1.1
+ 378   2        }
+ 379   1      
+ 380   1        SFRPAGE = PG2_PAGE;
+ 381   1      
+ 382   1        EIE1 &= ~0x02;                     // Disable Port Match interrupts to
+ 383   1                                           // prevent multiple interrupts from
+ 384   1                                           // occurring while the button is
+ 385   1                                           // pressed
+ 386   1        SFRPAGE = SFRPAGE_save;
+ 387   1      }
+ 388          
+ 389          ///////////////////////////////////////////////////////////////////////////////
+ 390          // Driver Function
+ 391          ///////////////////////////////////////////////////////////////////////////////
+ 392          
+ 393          
+ 394          void Voltmeter_main(void)
+ 395          {
+ 396   1       // uint32_t adcVoltage = 0;
+ 397   1              //int p;
+ 398   1        // Initial ADC input is joystick
+ 399   1        //adcInput = ADCINPUT_JOYSTICK;
+ 400   1        //updateAdcInput = UPDATEADCINPUT_YES;
+ 401   1        unsigned char A[20];
+ 402   1        int indexi = 0;
+ 403   1        int line = 12;
+ 404   1        while (1)
+ 405   1        {
+ 406   2                A[indexi] = getchar();
+ 407   2                indexi = indexi + 1;
+ 408   2                //if(A[indexi] == '\b'){
+ 409   2                      //  indexi = indexi - 2;
+ 410   2              //        A[indexi] = "";
+ 411   2               // }
+ 412   2                drawScreenText(&A, line, FONT_SCALE_DEFAULT);
+ 413   2                if (indexi == 20 || A[indexi-1] == '\n')
+ 414   2                {
+ 415   3                        line = line +12;
+ 416   3                        indexi = 0;
+ 417   3                        A[0] = "";
+*** WARNING C260 IN LINE 417 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 418   3                        A[1] = "";
+*** WARNING C260 IN LINE 418 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 8   
+
+             -ointer truncation
+ 419   3                        A[2] = "";
+*** WARNING C260 IN LINE 419 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 420   3                        A[3] = "";
+*** WARNING C260 IN LINE 420 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 421   3                        A[4] = "";
+*** WARNING C260 IN LINE 421 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 422   3                        A[5] = "";
+*** WARNING C260 IN LINE 422 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 423   3                        A[6] = "";
+*** WARNING C260 IN LINE 423 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 424   3                        A[7] = "";
+*** WARNING C260 IN LINE 424 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 425   3                        A[8] = "";
+*** WARNING C260 IN LINE 425 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 426   3                        A[9] = "";
+*** WARNING C260 IN LINE 426 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 427   3                        A[10] = "";
+*** WARNING C260 IN LINE 427 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 428   3                        A[11] = "";
+*** WARNING C260 IN LINE 428 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 429   3                        A[12] = "";
+*** WARNING C260 IN LINE 429 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 430   3                        A[13] = "";
+*** WARNING C260 IN LINE 430 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 431   3                        A[14] = "";
+*** WARNING C260 IN LINE 431 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 432   3                        A[15] = "";
+*** WARNING C260 IN LINE 432 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 433   3                        A[16] = "";
+*** WARNING C260 IN LINE 433 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 434   3                        A[17] = "";
+*** WARNING C260 IN LINE 434 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 435   3                        A[18] = "";
+*** WARNING C260 IN LINE 435 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 436   3                        A[19] = "";
+*** WARNING C260 IN LINE 436 OF C:\Users\student\SimplicityStudio\v4_workspace\EFM8BB3_Voltmeter\src\voltmeter.c: '=': p
+             -ointer truncation
+ 437   3                }
+ 438   2      
+ 439   2      
+ 440   2        }
+ 441   1        //for(indexi = 0; )
+ 442   1        //A[indexi] = getchar();
+ 443   1        //indexi =+ 1;
+ 444   1      
+C51 COMPILER V9.53.0.0   VOLTMETER                                                         05/08/2017 21:56:41 PAGE 9   
+
+ 445   1        //int i = 0;
+ 446   1        //A[i] = getchar();
+ 447   1       // i++;
+ 448   1      
+ 449   1      
+ 450   1        //p = &inputchar;
+ 451   1      
+ 452   1        //drawScreenText(&A,       12, FONT_SCALE_DEFAULT);
+ 453   1        // Display instructions
+ 454   1        //while(1){}
+ 455   1      
+ 456   1        //drawScreenText("THE JOYSTICK VOLTAGE", 36, FONT_SCALE_DEFAULT);
+ 457   1        //drawScreenText("AND DIRECTION WILL",   48, FONT_SCALE_DEFAULT);
+ 458   1        //drawScreenText("BE DISPLAYED.",        60, FONT_SCALE_DEFAULT);
+ 459   1        //drawScreenText("PRESS BUTTON PB0 TO",  84, FONT_SCALE_DEFAULT);
+ 460   1       // drawScreenText("SWITCH ADC INPUT.",    96, FONT_SCALE_DEFAULT);
+ 461   1      
+ 462   1        // Wait for joystick movement
+ 463   1        //while(JOYSTICK_convert_mv_to_direction(ADC_GetVoltage()) == JOYSTICK_NONE);
+ 464   1        //DISP_ClearAll();
+ 465   1      
+ 466   1      
+ 467   1      
+ 468   1      
+ 469   1        // Begin demo
+ 470   1        /*while(1)
+ 471   1        {
+ 472   1      
+ 473   1          adcVoltage = ADC_GetVoltage();
+ 474   1          updateDpad(JOYSTICK_convert_mv_to_direction(adcVoltage));
+ 475   1          drawScreen(adcVoltage);
+ 476   1          synchFrame();
+ 477   1      
+ 478   1          // Wait for button to be released before re-enabling port match
+ 479   1          // interrupts
+ 480   1          if (BSP_PB0 == BSP_PB_UNPRESSED)
+ 481   1          {
+ 482   1            EIE1 |= 0x02;
+ 483   1          }
+ 484   1        }*/
+ 485   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1099    ----
+   CONSTANT SIZE    =   1448    ----
+   XDATA SIZE       =     34    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      7      61
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  20 WARNING(S),  0 ERROR(S)
